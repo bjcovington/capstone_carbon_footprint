@@ -1,5 +1,4 @@
-import 'dart:math'; // Import the math library
-
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,13 +6,13 @@ class ResultsScreen extends StatefulWidget {
   final String selectedTransportation;
   final TimeOfDay startTime;
   final TimeOfDay endTime;
-  final double calculatedEmissions; // Define calculatedEmissions parameter
+  final double calculatedEmissions;
 
   ResultsScreen({
     @required this.selectedTransportation,
     @required this.startTime,
     @required this.endTime,
-    @required this.calculatedEmissions, // Add calculatedEmissions parameter
+    @required this.calculatedEmissions,
   });
 
   @override
@@ -21,9 +20,7 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
-  bool isKgSelected = true; // Flag to track whether kg is selected
-
-  // Define a variable to store the unit for emissions display
+  bool isKgSelected = true;
   String _emissionsUnit = 'kg';
 
   @override
@@ -52,7 +49,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     onChanged: (value) {
                       setState(() {
                         isKgSelected = value;
-                        // Update the emissions unit based on the selected unit
                         _emissionsUnit = isKgSelected ? 'kg' : 'lbs';
                       });
                     },
@@ -63,7 +59,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               SizedBox(height: 20),
               _buildComparisonChart(),
               SizedBox(height: 20),
-              _buildEcoFriendlySuggestions(), // Add this line to include eco-friendly suggestions
+              _buildEcoFriendlySuggestions(),
             ],
           ),
         ),
@@ -72,74 +68,67 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   String _formattedEmissions() {
-    // Convert emissions to selected unit
-    double emissions = isKgSelected ? widget.calculatedEmissions : widget.calculatedEmissions * 0.453592; // Convert kg to lbs
-
-    // Round emissions to 2 decimal places
+    double emissions = isKgSelected ? widget.calculatedEmissions : widget.calculatedEmissions / 0.453592;
     emissions = double.parse(emissions.toStringAsFixed(2));
-
-    return '$emissions $_emissionsUnit'; // Display emissions with the selected unit
+    return '$emissions $_emissionsUnit';
   }
 
   Widget _buildComparisonChart() {
-    final Map<String, double> emissionsMap = {
-      'Car': 0.592, // 592 grams per kilometer for cars
-      'Bus': 0.822, // 822 grams per kilometer for buses
-      'Bicycle/Walk': 0.0, // No emissions for bicycle and walking
-      'Airplane': 1.101, // 101 grams per passenger-kilometer for airplanes
+    final Map<String, double> emissionsMapKg = {
+      'Car': 0.592,
+      'Bus': 0.822,
+      'Bicycle/Walk': 0.0,
+      'Airplane': 1.101,
     };
 
-    // Find the maximum emissions value to determine the scaling factor
-    double maxEmissions = emissionsMap.values.reduce((value, element) => max(value, element));
+    final Map<String, double> emissionsMapLbs = emissionsMapKg.map((key, value) {
+      return MapEntry(key, value / 0.453592);
+    });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: emissionsMap.entries.map((entry) {
-        String transportation = entry.key;
-        double emissions = entry.value;
-        double scaledEmissions = maxEmissions != 0 ? log(emissions / maxEmissions) : 0; // Scale emissions using a logarithmic scale
+    final emissionsMap = isKgSelected ? emissionsMapKg : emissionsMapLbs;
+    double maxEmissions = emissionsMap.values.reduce(max);
 
-        // Ensure that the scaled width is non-negative
-        double barWidth = max(0, MediaQuery.of(context).size.width * scaledEmissions * 0.5); // Adjust the scaling factor as needed
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double maxWidth = constraints.maxWidth * 0.8;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            children: [
-              Text(transportation),
-              SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  height: 20,
-                  width: barWidth,
-                  color: Colors.blue,
-                ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: emissionsMap.entries.map((entry) {
+            String transportation = entry.key;
+            double emissions = entry.value;
+            double scaledEmissions = maxEmissions != 0 ? (emissions / maxEmissions) : 0;
+
+            double barWidth = maxWidth * scaledEmissions;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: [
+                  Container(
+                    width: 80, // Fixed width for labels
+                    child: Text(transportation),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    flex: (scaledEmissions * 100).round(),
+                    child: Container(
+                      height: 20,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Container(
+                    width: 50, // Fixed width for emission values
+                    child: Text('${emissions.toStringAsFixed(2)} $_emissionsUnit'),
+                  ),
+                ],
               ),
-              SizedBox(width: 8),
-              Text('${emissions.toStringAsFixed(2)}'),
-            ],
-          ),
+            );
+          }).toList(),
         );
-      }).toList(),
+      },
     );
-  }
-
-
-
-  double _calculateEmissions(double emissionsPerHour) {
-    double timeDuration = 0.0;
-    if (widget.startTime != null && widget.endTime != null) {
-      final startTimeInMinutes = widget.startTime.hour * 60 + widget.startTime.minute;
-      final endTimeInMinutes = widget.endTime.hour * 60 + widget.endTime.minute;
-      timeDuration = (endTimeInMinutes - startTimeInMinutes) / 60.0; // Time duration in hours
-    }
-
-    // Conditionally calculate emissions based on the selected unit
-    if (isKgSelected) {
-      return emissionsPerHour * timeDuration;
-    } else {
-      return emissionsPerHour * timeDuration * 0.453592; // Convert kg to lbs
-    }
   }
 
   Widget _buildEcoFriendlySuggestions() {
